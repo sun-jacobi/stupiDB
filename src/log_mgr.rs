@@ -14,7 +14,7 @@ pub(crate) struct LogMgr {
     log_file: String,
     last_staged: usize,   // added to log_pg, but not commit to log_file
     last_commited: usize, // commited to log_file
-    curr_block_id: u64,
+    curr_block_id: u64,   // current used blokck
 }
 
 impl LogMgr {
@@ -22,7 +22,6 @@ impl LogMgr {
         let file_mgr = FileMgr::new(String::from("example/"), 100);
         let page_size = file_mgr.block_size();
         let log_pg = Page::new(page_size);
-        let curr_block = Block::new(log_file.clone(), 0);
         Self {
             file_mgr,
             log_pg,
@@ -35,7 +34,9 @@ impl LogMgr {
 
     pub fn add(&mut self, msg: Vec<u8>) -> Result<Record> {
         let rec_size = msg.len() + size_of::<usize>();
-        if self.log_pg.avail_space() >= rec_size {
+
+        if self.log_pg.avail_space() < rec_size {
+            self.flush()?;
             self.log_pg.append(&msg);
             self.last_staged += 1;
             let lsn = self.last_staged.to_le_bytes().to_vec();
@@ -45,16 +46,15 @@ impl LogMgr {
                 lsn: self.last_staged,
             });
         }
-        // write the whole page back to block;
-        self.flush()?;
+
         self.log_pg.append(&msg);
         self.last_staged += 1;
         let lsn = self.last_staged.to_le_bytes().to_vec();
         self.log_pg.append(&lsn);
-        Ok(Record {
+        return Ok(Record {
             msg,
             lsn: self.last_staged,
-        })
+        });
     }
 
     pub fn commit(&mut self, lsn: usize) -> Result<()> {
@@ -76,6 +76,14 @@ impl LogMgr {
         self.curr_block_id += 1;
         self.log_pg.flush();
         Ok(())
+    }
+}
+
+impl Iterator for LogMgr {
+    type Item = Record;
+    fn next(&mut self) -> Option<Self::Item> {
+        // TODO
+        None
     }
 }
 

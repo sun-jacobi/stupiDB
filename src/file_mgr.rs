@@ -1,6 +1,7 @@
 use anyhow::Result;
 use std::fs::File;
 use std::fs::OpenOptions;
+use std::io::Read;
 use std::io::Write;
 use std::io::{Seek, SeekFrom};
 use std::mem::size_of;
@@ -25,6 +26,18 @@ impl Data<u32> for u32 {
     }
     fn to_bytes(&self) -> Vec<u8> {
         self.to_le_bytes().to_vec()
+    }
+}
+
+impl Data<String> for String {
+    fn from_bytes(bytes: Vec<u8>) -> String {
+        String::from_utf8(bytes[9..].try_into().unwrap()).unwrap()
+    }
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = self.bytes().collect::<Vec<u8>>();
+        let mut len = bytes.len().to_le_bytes().to_vec();
+        len.append(&mut bytes);
+        len
     }
 }
 
